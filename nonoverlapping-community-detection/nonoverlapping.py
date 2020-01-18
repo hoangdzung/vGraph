@@ -6,6 +6,7 @@ import time
 from tqdm import tqdm
 import math
 import numpy as np
+import os
 from subprocess import check_output
 
 import networkx as nx
@@ -31,11 +32,14 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-
+from sklearn.metrics import homogeneity_score
+from sklearn.metrics import  normalized_mutual_info_score as nmi
 from tqdm import tqdm 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='s', help="models used")
+parser.add_argument('--pretrained', default='')
+parser.add_argument('--saved_model')
 parser.add_argument('--lamda', type=float, default=.1, help="")
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=1001, help='Number of epochs to train.')
@@ -86,7 +90,7 @@ def get_assignment(G, model, num_classes=5, tpe=0):
         else:
             res[e[0], q_argmax[idx]] += 1
             res[e[1], q_argmax[idx]] += 1
-    import pdb;pdb.set_trace()
+
     res = res.argmax(axis=-1)
     assignment = {i : res[i] for i in range(res.shape[0])}
     return res, assignment
@@ -172,7 +176,7 @@ def evaluate(embeddings, labels):
     for seed in range(50):
         X_train, X_test, y_train, y_test = train_test_split(
             embeddings, labels, test_size=0.5, random_state=42)
-        log = LogisticRegression()
+        log = LogisticRegression(multi_class='auto',solver='lbfgs')
         log.fit(X_train, y_train)
         score = log.score(X_test, y_test)
         scores.append(score)
@@ -205,6 +209,8 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = GCNModelGumbel(adj.shape[0], embedding_dim, categorical_dim, args.dropout, device)
+    if os.path.isfile(args.pretrained):
+        model.load_state_dict(torch.load(args.pretrained))
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     hidden_emb = None
@@ -217,7 +223,7 @@ if __name__ == '__main__':
     
     smallest_loss = 1e20
     best_result = None 
-
+    best_embedding = None
     for epoch in tqdm(range(epochs)):
 
         t = time.time()
@@ -251,17 +257,25 @@ if __name__ == '__main__':
             model.eval()
             if cur_loss < smallest_loss:
                 smallest_loss = cur_loss
-                batch = torch.LongTensor(list(range(adj.shape[0])))
-                embeddings = model.node_embeddings(batch).detach().cpu().numpy()
-                best_result = evaluate(embeddings, np.array(gt_membership))
-            print(best_result)
-            # membership, assignment = get_assignment(G, model, categorical_dim)
+                #batch = torch.LongTensor(list(range(adj.shape[0])))
+                #best_embeddings = model.node_embeddings(batch).detach().cpu().numpy()
+                torch.save(model.state_dict(), args.saved_model)
+            #    best_result = evaluate(embeddings, np.array(gt_membership))
+            #print(best_result)
+                #membership, assignment = get_assignment(G, model, categorical_dim)
             # #print([(membership == i).sum() for i in range(categorical_dim)])
             # #print([(np.array(gt_membership) == i).sum() for i in range(categorical_dim)])
             # modularity = classical_modularity_calculator(G, assignment)
-            # nmi = calc_nonoverlap_nmi(membership.tolist(), gt_membership)
-            
+                #nmi = calc_nonoverlap_nmi(membership.tolist(), gt_membership)
+                
             # print(epoch, nmi, modularity)
             # logging(args, epoch, nmi, modularity)
-            
+    model.load_state_dict(torch.load(args.saved_model))
+    batch = torch.LongTensor(list(range(adj.shape[0])))
+    best_embeddings = model.node_embeddings(batch).detach().cpu().numpy()
+    best_result = evaluate(best_embeddings, np.array(gt_membership))
+    membership, assignment = get_assignment(G, model, categorical_dim)
+    best_nmi = nmi(gt_membership,membership.tolist())
+    best_homo = homogeneity_score(gt_membership,membership.tolist())
+    print(best_result, best_nmi, best_homo)
     print("Optimization Finished!")
