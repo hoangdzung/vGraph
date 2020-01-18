@@ -257,7 +257,7 @@ if __name__ == '__main__':
             optimizer.step()
         
         if epoch % 1 == 0:
-            print(epoch, loss.item())
+            print(epoch, cur_loss)
             # temp = np.maximum(temp*np.exp(-ANNEAL_RATE*epoch),temp_min)
             
             model.eval()
