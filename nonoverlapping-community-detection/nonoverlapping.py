@@ -43,6 +43,7 @@ parser.add_argument('--saved_model')
 parser.add_argument('--lamda', type=float, default=.1, help="")
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=1001, help='Number of epochs to train.')
+parser.add_argument('--batch_size', type=int, default=4096, help='Batch size.')
 parser.add_argument('--embedding-dim', type=int, default=128, help='')
 parser.add_argument('--lr', type=float, default=0.1, help='Initial learning rate.')
 parser.add_argument('--dropout', type=float, default=0., help='Dropout rate (1 - keep probability).')
@@ -219,38 +220,41 @@ if __name__ == '__main__':
     history_valap = []
     history_mod = []
 
-    train_edges = [(u,v) for u,v in G.edges()]
+    train_edges = np.array([(u,v) for u,v in G.edges()])
     n_nodes = G.number_of_nodes()
     print('len(train_edges)', len(train_edges))
     
+    n_batches = math.ceil(train_edges.shape[0]/args.batch_size)
     smallest_loss = 1e20
     best_result = None 
     best_embedding = None
     for epoch in tqdm(range(epochs)):
 
         t = time.time()
-        batch = torch.LongTensor(train_edges)
-        assert batch.shape == (len(train_edges), 2)
+        cur_loss = 0
+        for batch_edges in np.array_split(train_edges, n_batches):
+            batch = torch.LongTensor(batch_edges)
+            # assert batch.shape == (len(train_edges), 2)
 
-        model.train()
-        optimizer.zero_grad()
+            model.train()
+            optimizer.zero_grad()
 
-        w = torch.cat((batch[:, 0], batch[:, 1]))
-        c = torch.cat((batch[:, 1], batch[:, 0]))
-        recon, q, prior = model(w, c, temp)
+            w = torch.cat((batch[:, 0], batch[:, 1]))
+            c = torch.cat((batch[:, 1], batch[:, 0]))
+            recon, q, prior = model(w, c, temp)
 
-        res = torch.zeros([n_nodes, categorical_dim], dtype=torch.float32).to(device)
-        for idx, e in enumerate(train_edges):
-            res[e[0], :] += q[idx, :]
-            res[e[1], :] += q[idx, :]
-        smoothing_loss = args.lamda * ((res[w] - res[c])**2).mean()
+            res = torch.zeros([n_nodes, categorical_dim], dtype=torch.float32).to(device)
+            for idx, e in enumerate(train_edges):
+                res[e[0], :] += q[idx, :]
+                res[e[1], :] += q[idx, :]
+            smoothing_loss = args.lamda * ((res[w] - res[c])**2).mean()
 
-        loss = loss_function(recon, q, prior, c.to(device), None, None)
-        loss += smoothing_loss
+            loss = loss_function(recon, q, prior, c.to(device), None, None)
+            loss += smoothing_loss
 
-        loss.backward()
-        cur_loss = loss.item()
-        optimizer.step()
+            loss.backward()
+            cur_loss += loss.item()
+            optimizer.step()
         
         if epoch % 1 == 0:
             print(epoch, loss.item())
