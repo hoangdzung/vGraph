@@ -377,6 +377,15 @@ def load_cora_citeseer(ds):
     membership = [membership[i] for i in range(G.number_of_nodes())]
     return G, nx.adjacency_matrix(G), membership
 
+def load_pubmed():
+    from torch_geometric.datasets import Planetoid
+    dirpath = '../data/pubmed'
+    dataset = Planetoid(dirpath,'Pubmed')
+    data = dataset[0]
+    G = nx.Graph()
+    G.add_edges_from(data.edge_index.numpy().T.tolist())
+    return G, nx.adjacency_matrix(G), data.y.numpy().tolist()
+
 def load_webkb(ds):
     dirpath = '../data/WebKB'
     edge_path = dirpath + '/{}.cites'.format(ds)

@@ -24,7 +24,7 @@ from torch.autograd import Variable
 import collections
 import re
 
-from data_utils import load_cora_citeseer, load_webkb
+from data_utils import load_cora_citeseer, load_webkb, load_pubmed
 from score_utils import calc_nonoverlap_nmi
 # import community
 import torch
@@ -197,6 +197,8 @@ if __name__ == '__main__':
     # In[13]:
     if args.dataset_str in ['cora', 'citeseer']:
         G, adj, gt_membership = load_cora_citeseer(args.dataset_str)
+    elif args.dataset_str == 'pubmed':
+        G, adj, gt_membership = load_pubmed()
     else:
         G, adj, gt_membership = load_webkb(args.dataset_str)
 
