@@ -24,13 +24,15 @@ import collections
 import re
 
 from data_utils import load_cora_citeseer, load_webkb
-from utils import calc_nonoverlap_nmi
-import community
+from score_utils import calc_nonoverlap_nmi
+# import community
 import torch
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
 
-
+from tqdm import tqdm 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='s', help="models used")
@@ -84,7 +86,7 @@ def get_assignment(G, model, num_classes=5, tpe=0):
         else:
             res[e[0], q_argmax[idx]] += 1
             res[e[1], q_argmax[idx]] += 1
-
+    import pdb;pdb.set_trace()
     res = res.argmax(axis=-1)
     assignment = {i : res[i] for i in range(res.shape[0])}
     return res, assignment
@@ -165,6 +167,19 @@ class GCNModelGumbel(nn.Module):
             
         return recon, F.softmax(q, dim=-1), prior
 
+def evaluate(embeddings, labels):
+    scores = []
+    for seed in range(50):
+        X_train, X_test, y_train, y_test = train_test_split(
+            embeddings, labels, test_size=0.5, random_state=42)
+        log = LogisticRegression()
+        log.fit(X_train, y_train)
+        score = log.score(X_test, y_test)
+        scores.append(score)
+    scores = np.array(scores)
+
+    return [np.mean(scores), np.std(scores)]
+
 if __name__ == '__main__':
     args = parser.parse_args()
     embedding_dim = args.embedding_dim
@@ -199,7 +214,11 @@ if __name__ == '__main__':
     train_edges = [(u,v) for u,v in G.edges()]
     n_nodes = G.number_of_nodes()
     print('len(train_edges)', len(train_edges))
-    for epoch in range(epochs):
+    
+    smallest_loss = 1e20
+    best_result = None 
+
+    for epoch in tqdm(range(epochs)):
 
         t = time.time()
         batch = torch.LongTensor(train_edges)
@@ -225,18 +244,24 @@ if __name__ == '__main__':
         cur_loss = loss.item()
         optimizer.step()
         
-        if epoch % 100 == 0:
-            temp = np.maximum(temp*np.exp(-ANNEAL_RATE*epoch),temp_min)
+        if epoch % 1 == 0:
+            print(epoch, loss.item())
+            # temp = np.maximum(temp*np.exp(-ANNEAL_RATE*epoch),temp_min)
             
             model.eval()
+            if cur_loss < smallest_loss:
+                smallest_loss = cur_loss
+                batch = torch.LongTensor(list(range(adj.shape[0])))
+                embeddings = model.node_embeddings(batch).detach().cpu().numpy()
+                best_result = evaluate(embeddings, np.array(gt_membership))
+            print(best_result)
+            # membership, assignment = get_assignment(G, model, categorical_dim)
+            # #print([(membership == i).sum() for i in range(categorical_dim)])
+            # #print([(np.array(gt_membership) == i).sum() for i in range(categorical_dim)])
+            # modularity = classical_modularity_calculator(G, assignment)
+            # nmi = calc_nonoverlap_nmi(membership.tolist(), gt_membership)
             
-            membership, assignment = get_assignment(G, model, categorical_dim)
-            #print([(membership == i).sum() for i in range(categorical_dim)])
-            #print([(np.array(gt_membership) == i).sum() for i in range(categorical_dim)])
-            modularity = classical_modularity_calculator(G, assignment)
-            nmi = calc_nonoverlap_nmi(membership.tolist(), gt_membership)
-            
-            print(epoch, nmi, modularity)
-            logging(args, epoch, nmi, modularity)
+            # print(epoch, nmi, modularity)
+            # logging(args, epoch, nmi, modularity)
             
     print("Optimization Finished!")
