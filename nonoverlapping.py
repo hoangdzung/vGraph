@@ -232,28 +232,46 @@ if __name__ == '__main__':
 
         t = time.time()
         cur_loss = 0
-        #for batch_edges in np.array_split(train_edges, n_batches):
-        batch = torch.LongTensor(train_edges)
-        # assert batch.shape == (len(train_edges), 2)
+        if n_batches == 1:
+            batch = torch.LongTensor(train_edges)
+            model.train()
+            optimizer.zero_grad()
 
-        model.train()
-        optimizer.zero_grad()
-
-        w = torch.cat((batch[:, 0], batch[:, 1]))
-        c = torch.cat((batch[:, 1], batch[:, 0]))
-        recon, q, prior = model(w, c, temp)
-        if True: # n_batches == 1:
+            w = torch.cat((batch[:, 0], batch[:, 1]))
+            c = torch.cat((batch[:, 1], batch[:, 0]))
+            recon, q, prior = model(w, c, temp)
             res = torch.zeros([n_nodes, categorical_dim], dtype=torch.float32).to(device)
-        else:
-            n_batch_nodes = len(set(batch_edges.reshape((-1,))))
-            res = torch.zeros([n_batch_nodes, categorical_dim], dtype=torch.float32).to(device)
-        for idx, e in enumerate(train_edges):
-            res[e[0], :] += q[idx, :]
-            res[e[1], :] += q[idx, :]
-        smoothing_loss = args.lamda * ((res[w] - res[c])**2).mean()
+            for idx, e in enumerate(train_edges):
+                res[e[0], :] += q[idx, :]
+                res[e[1], :] += q[idx, :]
+            smoothing_loss = args.lamda * ((res[w] - res[c])**2).mean()
 
-        loss = loss_function(recon, q, prior, c.to(device), None, None)
-        loss += smoothing_loss
+            loss = loss_function(recon, q, prior, c.to(device), None, None)
+            loss += smoothing_loss
+
+        else:
+            for batch_edges in np.array_split(train_edges, n_batches):
+                batch = torch.LongTensor(batch_edges)
+
+                model.train()
+                optimizer.zero_grad()
+
+                w = torch.cat((batch[:, 0], batch[:, 1]))
+                c = torch.cat((batch[:, 1], batch[:, 0]))
+                recon, q, prior = model(w, c, temp)
+
+                batch_nodes = sorted(set(batch_edges.reshape((-1,))))
+                remap = {node:i for i, node in enumerate(batch_nodes)}
+                n_batch_nodes = len(batch_nodes)
+
+                res = torch.zeros([n_batch_nodes, categorical_dim], dtype=torch.float32).to(device)
+                for idx, e in enumerate(batch_edges):
+                    res[remap(e[0]), :] += q[idx, :]
+                    res[remap(e[1]), :] += q[idx, :]
+                smoothing_loss = args.lamda * ((res[[remap[i.item()] for i in w]] - res[[remap[i.item()] for i in c]])**2).mean()
+
+                loss = loss_function(recon, q, prior, c.to(device), None, None)
+                loss += smoothing_loss
 
         loss.backward()
         cur_loss += loss.item()
