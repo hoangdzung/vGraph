@@ -348,7 +348,7 @@ def load_cora_citeseer(ds):
     label_mapping = {}
     membership = {}
     for line in content:
-        tmp = line.strip().split('\t')
+        tmp = line.strip().split()
         mapping[tmp[0]] = len(mapping)
         try:
             lab = label_mapping[tmp[-1]]
@@ -362,7 +362,7 @@ def load_cora_citeseer(ds):
     G = nx.Graph()
     with open(edge_path, 'r') as f:
         for line in f:
-            e0, e1 = line.strip().split('\t')
+            e0, e1 = line.strip().split()
             try:
                 e0 = mapping[e0]
                 e1 = mapping[e1]

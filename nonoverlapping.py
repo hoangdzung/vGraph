@@ -247,7 +247,7 @@ if __name__ == '__main__':
         else:
             n_batch_nodes = len(set(batch_edges.reshape((-1,))))
             res = torch.zeros([n_batch_nodes, categorical_dim], dtype=torch.float32).to(device)
-        for idx, e in enumerate(batch_edges):
+        for idx, e in enumerate(train_edges):
             res[e[0], :] += q[idx, :]
             res[e[1], :] += q[idx, :]
         smoothing_loss = args.lamda * ((res[w] - res[c])**2).mean()
