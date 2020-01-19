@@ -337,7 +337,7 @@ def read_dblp_small2(fpath):
     return G, nx.adjacency_matrix(G), edge_labels
 
 def load_cora_citeseer(ds):
-    dirpath = '../data/{}'.format(ds)
+    dirpath = './data/{}'.format(ds)
     edge_path = dirpath + '/{}.cites'.format(ds)
     content_path = dirpath + '/{}.content'.format(ds)
     
@@ -379,7 +379,7 @@ def load_cora_citeseer(ds):
 
 def load_pubmed():
     from torch_geometric.datasets import Planetoid
-    dirpath = '../data/pubmed'
+    dirpath = './data/pubmed'
     dataset = Planetoid(dirpath,'Pubmed')
     data = dataset[0]
     G = nx.Graph()
@@ -387,7 +387,7 @@ def load_pubmed():
     return G, nx.adjacency_matrix(G), data.y.numpy().tolist()
 
 def load_webkb(ds):
-    dirpath = '../data/WebKB'
+    dirpath = './data/WebKB'
     edge_path = dirpath + '/{}.cites'.format(ds)
     content_path = dirpath + '/{}.content'.format(ds)
     G = nx.Graph()
@@ -438,8 +438,8 @@ def read_all_facebook():
             assert min(list(G.nodes())) == 0
 
         mapping = {}
-        edge_fpath = '../data/facebook/{}.edges'.format(fb_num)
-        label_fpath =  '../data/facebook/{}.circles'.format(fb_num)
+        edge_fpath = './data/facebook/{}.edges'.format(fb_num)
+        label_fpath =  './data/facebook/{}.circles'.format(fb_num)
         with open(edge_fpath, 'r') as f:
             for line in f:
                 e0, e1 = line.strip().split('\t')
@@ -472,8 +472,8 @@ def read_all_facebook():
 def read_facebook(ds, relabel=True):
     fb_num = int(ds[8:])
     print('using facebook', fb_num)
-    edge_fpath = '../data/facebook/{}.edges'.format(fb_num)
-    label_fpath =  '../data/facebook/{}.circles'.format(fb_num)
+    edge_fpath = './data/facebook/{}.edges'.format(fb_num)
+    label_fpath =  './data/facebook/{}.circles'.format(fb_num)
     if relabel:
         mapping = {}
         G = nx.Graph()
@@ -534,8 +534,8 @@ def load_bigds(ds, relabel=False):
         ds, num = ds[:4], int(ds[4:])
     else:
         assert False
-    edges_path = '../data/{}/com-{}.ungraph.txt'.format(ds, ds)
-    community_path = '../data/{}/com-{}.top5000.cmty.txt'.format(ds, ds)
+    edges_path = './data/{}/com-{}.ungraph.txt'.format(ds, ds)
+    community_path = './data/{}/com-{}.top5000.cmty.txt'.format(ds, ds)
 
     raw_communities = []
     with open(community_path, 'r') as f:
@@ -704,8 +704,8 @@ def read_data_paper(dirpath, relabel=True):
     return G, nx.adjacency_matrix(G), new_gt_communities
 
 def read_flickr(num_communities, relabel=True):
-    edge_fpath = '../data/Flickr-dataset/data/edges.csv'
-    gt_fpath = '../data/Flickr-dataset/data/group-edges.csv'
+    edge_fpath = './data/Flickr-dataset/data/edges.csv'
+    gt_fpath = './data/Flickr-dataset/data/group-edges.csv'
     G = nx.Graph()
     mapping = {}
 
@@ -750,7 +750,7 @@ def load_dataset(ds, relabel=True):
         G, adj, gt_communities = read_facebook(ds)
 
     elif ds == 'dblp-small':
-        G, adj, gt_communities = read_data_author('../data/data_author', relabel=relabel)
+        G, adj, gt_communities = read_data_author('./data/data_author', relabel=relabel)
 
     elif 'youtube' in ds or 'amazon' in ds or 'dblp' in ds:
         G, adj, gt_communities = load_bigds(ds, relabel=True)

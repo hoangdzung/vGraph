@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
 
     # In[13]:
-    if args.dataset_str in ['cora', 'citeseer']:
+    if args.dataset_str in ['cora', 'citeseer', 'wiki']:
         G, adj, gt_membership = load_cora_citeseer(args.dataset_str)
     elif args.dataset_str == 'pubmed':
         G, adj, gt_membership = load_pubmed()
