@@ -32,7 +32,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import homogeneity_score
+from sklearn.metrics import homogeneity_score, f1_score, accuracy_score
 from sklearn.metrics import  normalized_mutual_info_score as nmi
 from tqdm import tqdm 
 
@@ -174,16 +174,26 @@ class GCNModelGumbel(nn.Module):
 
 def evaluate(embeddings, labels):
     scores = []
+    mac_f1s = []
+    mic_f1s = []
     for seed in range(50):
         X_train, X_test, y_train, y_test = train_test_split(
-            embeddings, labels, test_size=0.5, random_state=42)
+            embeddings, labels, test_size=0.5, random_state=seed)
         log = LogisticRegression(multi_class='auto',solver='lbfgs', max_iter=5000)
         log.fit(X_train, y_train)
-        score = log.score(X_test, y_test)
+        y_pred = log.predict(X_test)
+        score = accuracy_score(y_true, y_pred)
+        mac_f1 = f1_score(y_true, y_pred, average='macro')
+        mic_f1 = f1_score(y_true, y_pred, average='micro')
+        # score = log.score(X_test, y_test)
         scores.append(score)
+        mac_f1s.append(mac_f1)
+        mic_f1s.append(mic_f1)
     scores = np.array(scores)
+    mac_f1s = np.array(mac_f1s)
+    mic_f1s = np.array(mic_f1s)
 
-    return [np.mean(scores), np.std(scores)]
+    return [np.mean(scores), np.std(scores)], [np.mean(mac_f1s), np.std(mac_f1s)], [np.mean(mic_f1s), np.std(mic_f1s)]
 
 if __name__ == '__main__':
     args = parser.parse_args()
